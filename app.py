@@ -77,7 +77,7 @@ elif page == "bookings":
     df_rooms = pd.DataFrame(rooms)
     df_rooms = df_rooms.rename(columns={"room_name":"会議室名","capacity":"定員","room_id":"会議室ID"})
     st.table(df_rooms)
-    
+
 # 予約一覧の取得
     url_bookings = "http://127.0.0.1:8000/bookings"
     res = requests.get(url_bookings, verify=False)
@@ -136,10 +136,17 @@ elif page == "bookings":
                 minute=end_time.minute,
             ).isoformat()
         }
-        # 定員以下の予約人数の場合
-        if booked_num <= capacity:
+# 定員より多い予約人数の場合
+        if booked_num > capacity:
+            st.error(f'{room_name}の定員は、{capacity}名です。{capacity}名以下の予約人数のみ受け付けております。')
+        # 開始時刻 >= 終了時刻
+        elif start_time >= end_time:
+            st.error('開始時刻が終了時刻を越えています')
+        elif start_time < datetime.time(hour=9, minute=0, second=0) or end_time > datetime.time(hour=20, minute=0, second=0):
+            st.error('利用時間は9:00~20:00になります。')
+        else:
             # 会議室予約
-            url = "http://127.0.0.1:8000/bookings"
+            url = 'http://127.0.0.1:8000/bookings'
             res = requests.post(
                 url,
                 data=json.dumps(data),
@@ -147,9 +154,6 @@ elif page == "bookings":
                 verify=False
             )
             if res.status_code == 200:
-                st.success("予約完了しました")
-            st.json(res.json())
-
-        else:
-            st.error(f"{room_name}の定員は{capacity}名です。{capacity}名以下の予約人数のみ受け付けております。")
-
+                st.success('予約完了しました')            
+            elif res.status_code == 404 and res.json()['detail'] == 'Already booked' :
+                st.error('指定の時間にはすでに予約が入っています。')
